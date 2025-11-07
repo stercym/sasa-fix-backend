@@ -1,5 +1,5 @@
-from app import app  # import the app instance
-from models import db, User, ServiceProvider, Rating
+from app import app
+from models import db, User, Rating
 
 with app.app_context():
 
@@ -9,44 +9,50 @@ with app.app_context():
     print("Creating new tables...")
     db.create_all()
 
-    print("Seeding Users...")
+    print("Seeding Users (Clients)...")
 
-    user1 = User(name="Alice Johnson", email="alice@example.com")
+    user1 = User(name="Alice Johnson", email="alice@example.com", role="client")
     user1.set_password("alice123")
 
-    user2 = User(name="Brian Kim", email="brian@example.com")
+    user2 = User(name="Brian Kim", email="brian@example.com", role="client")
     user2.set_password("brian123")
 
-    user3 = User(name="Chanel Amani", email="chanel@example.com")
+    user3 = User(name="Chanel Amani", email="chanel@example.com", role="client")
     user3.set_password("chanel123")
 
-    db.session.add_all([user1, user2, user3])
-    db.session.commit()
+    print("Seeding Users (Service Providers)...")
 
-    print("Seeding Service Providers...")
-
-    provider1 = ServiceProvider(
+    provider1 = User(
         name="FixIt Plumbing Co.",
+        email="fixit@example.com",
+        role="provider",
         service_type="Plumbing",
         location="Nairobi",
         phone="0700123456"
     )
+    provider1.set_password("fixit123")
 
-    provider2 = ServiceProvider(
+    provider2 = User(
         name="Spark Electricals",
+        email="spark@example.com",
+        role="provider",
         service_type="Electrical",
         location="Thika",
         phone="0712345678"
     )
+    provider2.set_password("spark123")
 
-    provider3 = ServiceProvider(
+    provider3 = User(
         name="CleanSweep Services",
+        email="cleansweep@example.com",
+        role="provider",
         service_type="Cleaning",
         location="Westlands",
         phone="0798765432"
     )
+    provider3.set_password("clean123")
 
-    db.session.add_all([provider1, provider2, provider3])
+    db.session.add_all([user1, user2, user3, provider1, provider2, provider3])
     db.session.commit()
 
     print("Seeding Ratings...")
@@ -75,4 +81,4 @@ with app.app_context():
     db.session.add_all([rating1, rating2, rating3])
     db.session.commit()
 
-    print("Database seeding completed!")
+    print("✅ Database seeding completed successfully!")
