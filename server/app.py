@@ -10,7 +10,6 @@ from config import Config
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from datetime import timedelta
 
-db = SQLAlchemy()
 migrate = Migrate()
 
 def create_app():
@@ -23,7 +22,8 @@ def create_app():
     jwt = JWTManager(app)
     migrate.init_app(app, db)
 
-    from models import User, ServiceProvider, Rating
+    # models are imported at module level; ServiceProvider model was removed in favor of User(role='provider')
+    from models import User, Rating
 
     # HOME
     @app.route('/')
@@ -104,11 +104,14 @@ def create_app():
         ]
         created = []
         for s in sample:
-            existing = ServiceProvider.query.filter_by(name=s["name"], phone=s["phone"]).first()
+            # create users with role 'provider' instead of using a separate ServiceProvider model
+            existing = User.query.filter_by(name=s["name"], phone=s["phone"], role="provider").first()
             if existing:
                 created.append(existing.to_dict())
                 continue
-            p = ServiceProvider(**s)
+            p = User(name=s["name"], service_type=s["service_type"], location=s["location"], phone=s["phone"], role="provider")
+            # set a random/dummy password for seeded providers
+            p.set_password("password123")
             db.session.add(p)
             db.session.flush()
             created.append(p.to_dict())
@@ -152,12 +155,21 @@ def create_app():
 
         current_user_id = get_jwt_identity()
 
+        # validate and cast score
+        try:
+            score = int(score)
+        except (TypeError, ValueError):
+            return jsonify({"error": "score must be an integer"}), 400
+
+        if score < 1 or score > 5:
+            return jsonify({"error": "score must be between 1 and 5"}), 400
+
         existing = Rating.query.filter_by(provider_id=provider.id, user_id=current_user_id).first()
         if existing:
             existing.score = score
             existing.comment = comment
         else:
-            new_rating = Rating(provider_id=id, user_id=user_id, score=score, comment=comment)
+            new_rating = Rating(provider_id=provider.id, user_id=current_user_id, score=score, comment=comment)
             db.session.add(new_rating)
 
         db.session.commit()
