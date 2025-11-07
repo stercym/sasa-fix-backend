@@ -5,6 +5,12 @@ name = "pypi"
 
 [packages]
 flask = "*"
+flask_sqlalchemy = "*"
+flask_migrate = "*"
+flask_cors = "*"
+flask-jwt-extended = "*"
+python-dotenv = "*"
+werkzeug = "*"
 
 [dev-packages]
 

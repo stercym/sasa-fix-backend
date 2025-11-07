@@ -8,7 +8,6 @@ from config import Config
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from datetime import timedelta
 
-db = SQLAlchemy()
 migrate = Migrate()
 
 def create_app():
@@ -47,7 +46,7 @@ def create_app():
             if exists:
                 created.append({"name": exists.name, "id": exists.id})
                 continue
-            p = ServiceProvider(name=s["name"], service_type=s["service_type"], location=s["location"], phone=s["phone"], rating=0.0)
+            p = ServiceProvider(name=s["name"], service_type=s["service_type"], location=s["location"], phone=s["phone"])
             db.session.add(p)
             db.session.flush()
             created.append({"name": p.name, "id": p.id})
