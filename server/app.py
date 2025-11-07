@@ -30,11 +30,11 @@ def create_app():
     def index():
         return jsonify({"message": "Service Connect API is running!"})
 
-    
-    # You can remove this in production. 
+
+    # You can remove this in production.
     @app.route("/_seed_providers", methods=["POST"])
     def seed_providers():
-    
+
         sample = [
             {"name":"John Mechanic","service_type":"mechanic","location":"Kinoo","phone":"+254712345678"},
             {"name":"Mary Tyre Guy","service_type":"tyre repair","location":"Kasarani","phone":"+254723456789"},
@@ -105,7 +105,7 @@ def create_app():
         user = User.query.get_or_404(current_user_id)
         return jsonify(user.to_dict()), 200
 
-   
+
     # SERVICE PROVIDERS
     @app.route("/providers", methods=["GET"])
     def get_providers():
@@ -155,8 +155,8 @@ def create_app():
             ]
         }), 200
 
-   
-    # RATINGS 
+
+    # RATINGS
     @app.route("/providers/<int:id>/rating", methods=["POST"])
     @jwt_required()
     def rate_provider(id):
