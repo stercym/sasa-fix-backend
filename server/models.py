@@ -1,8 +1,8 @@
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import validates
 from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
-
 
 class User(db.Model):
     __tablename__ = "users"
@@ -12,8 +12,27 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
 
-    # Relationship: A user can create many ratings/reviews
-    ratings = db.relationship("Rating", backref="user", lazy=True)
+    role = db.Column(db.String(20), nullable=False)  # "client" or "provider"
+
+    # Only providers will have service info
+    service_type = db.Column(db.String(120), nullable=True)
+    location = db.Column(db.String(120), nullable=True)
+    phone = db.Column(db.String(30), nullable=True)
+
+    # ✅ specify foreign key to remove ambiguity
+    ratings_given = db.relationship(
+        "Rating",
+        foreign_keys="Rating.user_id",
+        back_populates="user",
+        lazy=True
+    )
+
+    ratings_received = db.relationship(
+        "Rating",
+        foreign_keys="Rating.provider_id",
+        back_populates="provider",
+        lazy=True
+    )
 
     def set_password(self, password):
         if len(password) < 6:
@@ -23,64 +42,81 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+    @validates("role")
+    def validate_role(self, key, value):
+        roles = ["client", "provider"]
+        if value not in roles:
+            raise ValueError(f"Role must be one of {roles}")
+        return value
+
+    @validates("email")
+    def validate_email(self, key, value):
+        if "@" not in value:
+            raise ValueError("Invalid email format")
+        return value
+
+    @validates("phone")
+    def validate_phone(self, key, value):
+        if self.role == "provider" and (value is None or len(value.strip()) < 9):
+            raise ValueError("Service providers must have a valid phone number")
+        return value
+
     def to_dict(self):
-        return {
+        data = {
             "id": self.id,
             "name": self.name,
-            "email": self.email
+            "email": self.email,
+            "role": self.role,
         }
 
+        if self.role == "provider":
+            data.update({
+                "service_type": self.service_type,
+                "location": self.location,
+                "phone": self.phone,
+                "rating": self.rating,
+                "reviews": [review.to_dict() for review in self.ratings_received]
+            })
 
-class ServiceProvider(db.Model):
-    __tablename__ = "service_providers"
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), nullable=False)
-    service_type = db.Column(db.String(120), nullable=False)
-    location = db.Column(db.String(120), nullable=False)
-    phone = db.Column(db.String(30), nullable=False)
-
-    ratings = db.relationship("Rating", backref="provider", lazy=True)
-
-    # Validation: ensure certain service types only
-    __table_args__ = (
-        db.CheckConstraint("length(name) > 0", name="provider_name_not_empty"),
-        db.CheckConstraint("length(service_type) > 0", name="provider_service_not_empty"),
-        db.CheckConstraint("length(phone) > 0", name="provider_phone_not_empty"),
-    )
+        return data
 
     @property
     def rating(self):
-        """Compute average rating from Rating table."""
-        if not self.ratings or len(self.ratings) == 0:
+        if len(self.ratings_received) == 0:
             return 0
-        total = sum([r.score for r in self.ratings])
-        return round(total / len(self.ratings), 1)
-
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "name": self.name,
-            "service_type": self.service_type,
-            "location": self.location,
-            "phone": self.phone,
-            "rating": self.rating,
-            "reviews": [review.to_dict() for review in self.ratings]
-        }
+        total = sum([r.score for r in self.ratings_received])
+        return round(total / len(self.ratings_received), 1)
 
 
 class Rating(db.Model):
     __tablename__ = "ratings"
 
     id = db.Column(db.Integer, primary_key=True)
-    provider_id = db.Column(db.Integer, db.ForeignKey("service_providers.id"))
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))  # Optional: track who rated
+
+    provider_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+
     score = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.Text)
 
-    __table_args__ = (
-        db.CheckConstraint("score >= 1 AND score <= 5", name="valid_rating_range"),
+    # ✅ explicit relationship definitions
+    user = db.relationship(
+        "User",
+        foreign_keys=[user_id],
+        back_populates="ratings_given"
     )
+
+    provider = db.relationship(
+        "User",
+        foreign_keys=[provider_id],
+        back_populates="ratings_received"
+    )
+
+    @validates("score")
+    def validate_score(self, key, value):
+        if value < 1 or value > 5:
+            raise ValueError("Rating must be between 1 and 5")
+        return value
 
     def to_dict(self):
         return {
