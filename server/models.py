@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import validates
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
 
 db = SQLAlchemy()
 
@@ -126,4 +127,37 @@ class Rating(db.Model):
             "provider_id": self.provider_id,
             "user_id": self.user_id,
             "user": self.user.name if self.user else None
+        }
+    
+class Notification(db.Model):
+    __tablename__ = "notifications"
+
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)   # client
+    receiver_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False) # provider
+
+    message = db.Column(db.String(255), nullable=False)
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # relationships
+    sender = db.relationship("User", foreign_keys=[sender_id], backref="sent_notifications", lazy=True)
+    receiver = db.relationship("User", foreign_keys=[receiver_id], backref="received_notifications", lazy=True)
+
+    def mark_as_read(self):
+        """Mark a notification as read."""
+        self.is_read = True
+        db.session.commit()
+
+    def to_dict(self):
+        """Serialize the notification for API responses."""
+        return {
+            "id": self.id,
+            "sender_id": self.sender_id,
+            "receiver_id": self.receiver_id,
+            "sender_name": self.sender.name if self.sender else None,
+            "receiver_name": self.receiver.name if self.receiver else None,
+            "message": self.message,
+            "is_read": self.is_read,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
         }
